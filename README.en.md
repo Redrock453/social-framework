@@ -117,11 +117,11 @@ flowchart LR
 
 **Publication roles in a fact-check.** Each publication is recorded with a `role`:
 
-- `origin` — the primary source: the earliest publication found of the original statement;
-- `reprint` — a reprint, forward or retelling of the same source without new independent confirmation;
-- `independent` — independent confirmation from another source.
+- `origin` — the primary source: the earliest publication found of the original statement (at most one);
+- `reprint` — a reprint, forward or retelling of the same source without new independent confirmation of the **whole** claim; also a publication that confirms only part of the claim and therefore does not get `independent`;
+- `independent` — independent confirmation of the whole claim from another source.
 
-`independent_count` is never entered by hand: it is computed from the roles as `origin` + `independent`, and `reprint` adds nothing. A publication that confirms only part of a claim (or takes a figure from an already counted source) must not be marked `independent` for that claim. This is a publication field; do not confuse it with `evidence.role` (`supporting` / `contradicting` / `source_attributed` / `context`) in analytical findings.
+If the primary source is unknown, do not invent an `origin`: the record field `origin_known` then is `false` (it is computed from the roles, like `independent_count`). `independent_count` is never entered by hand: it is computed from the roles as `origin` + `independent`, and `reprint` adds nothing. When there are no publications, `independent_count` is `null` (unknown), not 0. A publication that confirms only part of a claim (or takes a figure from an already counted source) must not be marked `independent` for that claim. This is a publication field; do not confuse it with `evidence.role` (`supporting` / `contradicting` / `source_attributed` / `context`) in analytical findings.
 
 ## Hard limits
 

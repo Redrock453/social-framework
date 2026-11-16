@@ -152,8 +152,10 @@ PUBLICATION_ROLES = ("origin", "reprint", "independent")
 def independent_count(publications) -> int:
     """Незалежні підтвердження твердження: публікації з role=origin або role=independent.
 
-    reprint (передрук, пересилка, переказ того самого джерела) не рахується.
-    Число завжди виводиться з ролей, вручну не задається. Мережа й диск не використовуються.
+    reprint (передрук, пересилка, переказ того самого джерела або часткове підтвердження)
+    не рахується. Число завжди виводиться з ролей, вручну не задається.
+    Для явного порожнього списку повертає 0; у записі fact_check за відсутності
+    публікацій поле independent_count дорівнює None («невідомо»). Мережа й диск не використовуються.
     """
     n = 0
     for i, p in enumerate(publications or [], 1):
@@ -163,6 +165,15 @@ def independent_count(publications) -> int:
         if role in ("origin", "independent"):
             n += 1
     return n
+
+
+def origin_known(publications) -> bool:
+    """Чи відоме першоджерело твердження: True, якщо є публікація з role=origin.
+
+    False для порожнього списку або коли серед публікацій немає origin.
+    Поле обчислюване з ролей, вручну не задається.
+    """
+    return any(p.get("role") == "origin" for p in publications or [] if isinstance(p, dict))
 
 
 def validate_publications(publications) -> None:
@@ -200,7 +211,8 @@ def fact_check(case: Path, claim: str, verdict: str, level: str, explanation: st
                                                         "kernel": kernel, "explanation": explanation,
                                                         "first_seen": first_seen, "spread": spread, "sources": sources,
                                                         "publications": pubs,
-                                                        "independent_count": independent_count(pubs)})
+                                                        "independent_count": independent_count(pubs) if pubs else None,
+                                                        "origin_known": origin_known(pubs)})
     log(case, f"фактчек F{n}: «{claim[:80]}» — {verdict} ({level})")
     return rec
 

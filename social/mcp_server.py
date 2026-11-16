@@ -200,8 +200,10 @@ def build(case: Path, readonly: bool = False) -> MCPServer:
         """Record a checked claim. verdict: правда | ймовірно правда | частково | перекручено | не підтверджено |
         припущення | неправда | фейк. level: A (document/measured) | B (several independent sources) | C (one source)
         | D (no verifiable data). kernel = the true part, first_seen = earliest source, spread = how it travelled.
-        publications: [{"url": ..., "role": "origin" | "reprint" | "independent", ...}] — independent_count is
-        computed from the roles (origin + independent; reprints excluded), never entered by hand."""
+        publications: [{"url": ..., "role": "origin" | "reprint" | "independent", ...}] — at most one origin; if the
+        primary source is unknown, leave origin out (the record then gets origin_known=false). independent_count is
+        computed from the roles (origin + independent; reprints excluded), never entered by hand; it is null when
+        there are no publications."""
         return out(core.fact_check(case, claim, verdict, level, explanation, sources, kernel, first_seen, spread,
                                    publications))
 

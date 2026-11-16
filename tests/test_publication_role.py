@@ -2,6 +2,8 @@
 
 Правило: independent_count = кількість публікацій з role=origin або role=independent;
 reprint не рахується; число завжди виводиться з ролей, вручну не задається.
+origin_known = True лише коли є публікація з role=origin. Якщо публікацій немає,
+у записі independent_count дорівнює None («невідомо»), а не 0.
 """
 from __future__ import annotations
 
@@ -44,6 +46,13 @@ class IndependentCountTest(unittest.TestCase):
     def test_roles_constant(self):
         self.assertEqual(core.PUBLICATION_ROLES, ("origin", "reprint", "independent"))
 
+    def test_origin_known_from_roles(self):
+        self.assertIs(core.origin_known([]), False)
+        self.assertIs(core.origin_known(None), False)
+        self.assertIs(core.origin_known([pub("https://t.me/a/1", "independent")]), False)
+        self.assertIs(core.origin_known([pub("https://t.me/a/1", "reprint"),
+                                         pub("https://t.me/b/2", "origin")]), True)
+
 
 class FactCheckPublicationsTest(unittest.TestCase):
     def setUp(self):
@@ -62,6 +71,7 @@ class FactCheckPublicationsTest(unittest.TestCase):
                 pub("https://t.me/c/3", "independent", channel="c", quote="1113 платників")]
         rec = core.fact_check(self.case, "Твердження", "правда", "B", "пояснення", [], publications=pubs)
         self.assertEqual(rec["independent_count"], 2)
+        self.assertIs(rec["origin_known"], True)
         self.assertEqual(rec["publications"], pubs)
         stored = self.records()[0]
         self.assertEqual(stored["independent_count"], 2)
@@ -80,12 +90,38 @@ class FactCheckPublicationsTest(unittest.TestCase):
         rec = core.fact_check(self.case, "Твердження", "частково", "C", "пояснення", ["https://example.org"])
         self.assertEqual(rec["sources"], ["https://example.org"])
         self.assertEqual(rec["publications"], [])
-        self.assertEqual(rec["independent_count"], 0)
-        self.assertEqual(self.records()[0]["independent_count"], 0)
+        self.assertIsNone(rec["independent_count"])
+        self.assertIs(rec["origin_known"], False)
+        stored = self.records()[0]
+        self.assertIsNone(stored["independent_count"])
+        self.assertIs(stored["origin_known"], False)
+
+    def test_empty_publications_list_is_unknown_too(self):
+        rec = core.fact_check(self.case, "Твердження", "припущення", "D", "пояснення", [], publications=[])
+        self.assertEqual(rec["publications"], [])
+        self.assertIsNone(rec["independent_count"])
+        self.assertIs(rec["origin_known"], False)
+
+    def test_two_independent_without_origin(self):
+        pubs = [pub("https://t.me/a/1", "independent"), pub("https://t.me/b/2", "independent")]
+        rec = core.fact_check(self.case, "Твердження", "правда", "B", "два джерела", [], publications=pubs)
+        self.assertIs(rec["origin_known"], False)
+        self.assertEqual(rec["independent_count"], 2)
+        stored = self.records()[0]
+        self.assertIs(stored["origin_known"], False)
+        self.assertEqual(stored["independent_count"], 2)
+
+    def test_one_origin_means_origin_known(self):
+        rec = core.fact_check(self.case, "Твердження", "правда", "B", "першоджерело є", [],
+                              publications=[pub("https://t.me/a/1", "origin"),
+                                            pub("https://t.me/b/2", "reprint")])
+        self.assertIs(rec["origin_known"], True)
+        self.assertEqual(rec["independent_count"], 1)
 
     def test_independent_count_cannot_be_passed_manually(self):
         params = inspect.signature(core.fact_check).parameters
         self.assertNotIn("independent_count", params)
+        self.assertNotIn("origin_known", params)
 
     def test_invalid_role_raises(self):
         with self.assertRaises(ValueError):
@@ -119,10 +155,12 @@ class FactCheckPublicationsTest(unittest.TestCase):
             pub("https://t.me/fuckcorruption/7532", "reprint", channel="fuckcorruption",
                 reason="пряма пересилка 50334"),
             pub("https://t.me/hromadske_ua/90854", "reprint", channel="hromadske_ua",
-                reason="власний коментар ВАКС, лише сума 44 млн, без 1113"),
+                reason="часткове підтвердження: власний коментар ВАКС лише про суму 44 млн, без 1113; "
+                       "повного твердження не підтверджує"),
             pub("https://t.me/cxemu/5124", "reprint", channel="cxemu", reason="пересилка 50334"),
             pub("https://t.me/suspilnenews/79107", "reprint", channel="suspilnenews",
-                reason="власний запит до ВАКС, без числа 1113"),
+                reason="часткове підтвердження: власний запит до ВАКС без числа 1113; "
+                       "повного твердження не підтверджує"),
             pub("https://t.me/ukrpravda_news/86455", "reprint", channel="ukrpravda_news",
                 reason="точне 1113 з Карася/РС, не окреме підтвердження"),
             pub("https://t.me/babel/92280", "reprint", channel="babel", reason="атрибуція РС"),
@@ -138,8 +176,10 @@ class FactCheckPublicationsTest(unittest.TestCase):
         self.assertEqual(roles.count("independent"), 1)
         self.assertEqual(core.independent_count(rec["publications"]), 2)
         self.assertEqual(rec["independent_count"], 2)
+        self.assertIs(rec["origin_known"], True)
         stored = self.records()[-1]
         self.assertEqual(stored["independent_count"], 2)
+        self.assertIs(stored["origin_known"], True)
         self.assertEqual(stored["sources"], [p["url"] for p in pubs])
 
 
