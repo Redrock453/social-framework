@@ -146,16 +146,61 @@ def archive_url(case: Path, url: str, timeout: int = 40) -> dict:
 
 
 # ------------------------------------------------------------------ fact-checks and judgments
+PUBLICATION_ROLES = ("origin", "reprint", "independent")
+
+
+def independent_count(publications) -> int:
+    """Незалежні підтвердження твердження: публікації з role=origin або role=independent.
+
+    reprint (передрук, пересилка, переказ того самого джерела) не рахується.
+    Число завжди виводиться з ролей, вручну не задається. Мережа й диск не використовуються.
+    """
+    n = 0
+    for i, p in enumerate(publications or [], 1):
+        role = p.get("role") if isinstance(p, dict) else None
+        if role not in PUBLICATION_ROLES:
+            raise ValueError(f"публікація #{i}: role має бути одним із {list(PUBLICATION_ROLES)}, отримано {role!r}")
+        if role in ("origin", "independent"):
+            n += 1
+    return n
+
+
+def validate_publications(publications) -> None:
+    """Перевіряє список публікацій: обов'язкові url і role, валідний role, щонайбільше один origin."""
+    if not isinstance(publications, (list, tuple)):
+        raise ValueError("publications має бути списком словників")
+    origins = 0
+    for i, p in enumerate(publications, 1):
+        if not isinstance(p, dict):
+            raise ValueError(f"публікація #{i}: очікується словник з полями url і role")
+        if not isinstance(p.get("url"), str) or not p["url"].strip():
+            raise ValueError(f"публікація #{i}: обов'язкове поле url (непорожній рядок)")
+        role = p.get("role")
+        if role not in PUBLICATION_ROLES:
+            raise ValueError(f"публікація #{i}: role має бути одним із {list(PUBLICATION_ROLES)}, отримано {role!r}")
+        if role == "origin":
+            origins += 1
+    if origins > 1:
+        raise ValueError("лише одна публікація може мати role=origin (першоджерело)")
+
+
 def fact_check(case: Path, claim: str, verdict: str, level: str, explanation: str, sources: list[str],
-               kernel: str = "", first_seen: str = "", spread: str = "") -> dict:
+               kernel: str = "", first_seen: str = "", spread: str = "",
+               publications: list[dict] | None = None) -> dict:
     if verdict not in VERDICTS:
         raise ValueError(f"verdict must be one of {VERDICTS}")
     if level not in LEVELS:
         raise ValueError("level must be A, B, C or D")
+    pubs = list(publications or [])
+    validate_publications(pubs)
+    if pubs and not sources:
+        sources = [p["url"] for p in pubs]
     n = len(read_jsonl(case / "wiki/factchecks.jsonl")) + 1
     rec = append_jsonl(case / "wiki/factchecks.jsonl", {"id": f"F{n}", "claim": claim, "verdict": verdict, "level": level,
                                                         "kernel": kernel, "explanation": explanation,
-                                                        "first_seen": first_seen, "spread": spread, "sources": sources})
+                                                        "first_seen": first_seen, "spread": spread, "sources": sources,
+                                                        "publications": pubs,
+                                                        "independent_count": independent_count(pubs)})
     log(case, f"фактчек F{n}: «{claim[:80]}» — {verdict} ({level})")
     return rec
 

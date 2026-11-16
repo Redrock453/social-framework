@@ -196,11 +196,14 @@ def build(case: Path, readonly: bool = False) -> MCPServer:
 
     @srv.tool()
     def fact_check(claim: str, verdict: str, level: str, explanation: str, sources: list[str], kernel: str = "",
-                   first_seen: str = "", spread: str = "") -> str:
+                   first_seen: str = "", spread: str = "", publications: list[dict] | None = None) -> str:
         """Record a checked claim. verdict: правда | ймовірно правда | частково | перекручено | не підтверджено |
         припущення | неправда | фейк. level: A (document/measured) | B (several independent sources) | C (one source)
-        | D (no verifiable data). kernel = the true part, first_seen = earliest source, spread = how it travelled."""
-        return out(core.fact_check(case, claim, verdict, level, explanation, sources, kernel, first_seen, spread))
+        | D (no verifiable data). kernel = the true part, first_seen = earliest source, spread = how it travelled.
+        publications: [{"url": ..., "role": "origin" | "reprint" | "independent", ...}] — independent_count is
+        computed from the roles (origin + independent; reprints excluded), never entered by hand."""
+        return out(core.fact_check(case, claim, verdict, level, explanation, sources, kernel, first_seen, spread,
+                                   publications))
 
     @srv.tool()
     def judgment(statement: str, probability: float, level: str, reasoning: str, alternatives: str = "",

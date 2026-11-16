@@ -115,6 +115,14 @@ flowchart LR
 | Scenarios | `forecast_define`, `forecast_observe`, `forecast_revise`, `forecast_resolve`, `forecast_state`, `forecast_watch` (automatic indicators from headlines) |
 | Report | `report_build` |
 
+**Publication roles in a fact-check.** Each publication is recorded with a `role`:
+
+- `origin` — the primary source: the earliest publication found of the original statement;
+- `reprint` — a reprint, forward or retelling of the same source without new independent confirmation;
+- `independent` — independent confirmation from another source.
+
+`independent_count` is never entered by hand: it is computed from the roles as `origin` + `independent`, and `reprint` adds nothing. A publication that confirms only part of a claim (or takes a figure from an already counted source) must not be marked `independent` for that claim. This is a publication field; do not confuse it with `evidence.role` (`supporting` / `contradicting` / `source_attributed` / `context`) in analytical findings.
+
 ## Hard limits
 
 - Public data only: no bypassing logins, CAPTCHAs or blocks.
